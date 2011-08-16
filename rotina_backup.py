@@ -36,13 +36,13 @@ class Backup:
 		s = smtplib.SMTP('smtp-expresso')
 		s.sendmail('backup@dataprev', self._build_mail_list(), header.as_string())
 
-	def copy_data(self, source, target):
+	def copy_data(self, target, source):
 		logging.info('Compressing target %s ' % target)
 		file_name = target
 		root_dir = self.config.get(self.section,'backup_dir')
 		print root_dir
 		try:
-			make_archive(root_dir,'gztar',file_name)
+			make_archive(target,'gztar',source)
 		except OSError:
 			logging.critical('backup dir %s not found', \
 				self.config.get('general','backup_dir'))
@@ -61,7 +61,9 @@ class Backup:
 # backups in command line either using API approach or command line utilities.
 class PostgreSQL(Backup):
 	def _exec(self):
-		self.copy_data('/Users/lhcezar/Projetos/ScriptBackup/example',self.config.get('general','backup_dir'))
+		dump_file = 'dump.dmp'
+		cmd = 'pg_dump'
+		self.copy_data(self.config.get('general','backup_dir')+'pgsql',dump_file)
 	def run(self):
 		self._exec()
 
