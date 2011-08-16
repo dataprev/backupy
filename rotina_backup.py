@@ -24,6 +24,7 @@ class Backup:
 		domain = self.config.get(self.section,'default_domain')
 		users = self.config.get(self.section,'notify_users').split(',')
 		user = map(lambda k:( k.strip() + '@' + domain),users)
+
 		return ','.join(user)
 
 	def send_mail(self, subject, body):
@@ -38,12 +39,49 @@ class Backup:
 	def copy_data(self, source, target):
 		logging.info('Compressing target %s ' % target)
 		file_name = target
-		root_dir = self.config.get(self.section,'backup_dir')+source
-		make_archive(file_name,'gztar',root_dir)
+		root_dir = self.config.get(self.section,'backup_dir')
+		print root_dir
+		try:
+			make_archive(root_dir,'gztar',file_name)
+		except OSError:
+			logging.critical('backup dir %s not found', \
+				self.config.get('general','backup_dir'))
+			print "Error: backup dir not found."
+			
+
+	def run():
+		pass
 
 	def shrink(self):
 		pass
 
+# Plugins are derivated classes that implements specific backup behavior.
+# They need only provides the exec abstract method of superclass. if you're
+# writing a new plugin you probably are going to known the better way to make
+# backups in command line either using API approach or command line utilities.
+class PostgreSQL(Backup):
+	def _exec(self):
+		self.copy_data('/Users/lhcezar/Projetos/ScriptBackup/example',self.config.get('general','backup_dir'))
+	def run(self):
+		self._exec()
+
+class Svn(Backup):
+	pass
+
+class Trac(Backup):
+	pass
+
+class UserDir(Backup):
+	pass
+
+class Git(Backup):
+	pass
+
+class ConfFiles(Backup):
+	pass
+
 if __name__ == "__main__":
-	b = Backup()
-	print b.send_mail('teste de assunto','teste backup')
+	full_backup = [PostgreSQL, Svn, Trac, UserDir]
+	b = PostgreSQL()
+	b.run()
+#	print b.send_mail('teste de assunto','teste backup')
