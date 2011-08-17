@@ -40,13 +40,13 @@ class Backup:
 		logging.info('Compressing target %s ' % target)
 		file_name = target
 		root_dir = self.config.get(self.section,'backup_dir')
-		print root_dir
+		
 		try:
 			make_archive(target,'gztar',source)
-		except OSError:
-			logging.critical('backup dir %s not found', \
+		except OSError as (no,str):
+			logging.critical(str, \
 				self.config.get('general','backup_dir'))
-			print "Error: backup dir not found."
+			print str
 			
 
 	def run():
@@ -62,7 +62,10 @@ class Backup:
 class PostgreSQL(Backup):
 	def _exec(self):
 		dump_file = 'dump.dmp'
-		cmd = 'pg_dump'
+		databases = self.config.get('PostgreSQL', 'database')
+		if databases == 'all':
+			cmd = 'pg_dumpall'
+		
 		self.copy_data(self.config.get('general','backup_dir')+'pgsql',dump_file)
 	def run(self):
 		self._exec()

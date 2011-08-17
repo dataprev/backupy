@@ -1,0 +1,11 @@
+*.pyc
+*.swp
+*.py~
+*.html~
+*.egg-info
+*.*~
+*.log
+backup.cfg
+tags
+build
+dist
