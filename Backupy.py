@@ -6,7 +6,7 @@ import logging
 import smtplib
 import os
 import subprocess
-from shutil import make_archive
+from shutil import make_archive, move
 from socket import gethostname
 from email.mime.text import MIMEText
 
@@ -14,7 +14,7 @@ __author__ = "Leonardo Cezar, <leonardo.cezar@dataprev.gov.br>"
 __all__    = ['PostgreSQL', 'Svn']
 CFG = 'backup.cfg'
 # WTF!!! no inspiration... 
-PG_DIR = '/tmp/postgres.bkp.tmp'
+STAGE_DIR = '/tmp/stage_bkp_dir/'
 
 class Backupy:
 	"""
@@ -24,6 +24,7 @@ class Backupy:
 		self.section = 'general'
 		self.config = ConfigParser.ConfigParser()
 		self.config.readfp(open(CFG))
+		self.create_stagedir()
 
 		format = "%(asctime)s %(message)s"
 		logging.basicConfig(format=format, \
@@ -46,16 +47,34 @@ class Backupy:
 		s = smtplib.SMTP('smtp-expresso')
 		s.sendmail('backup@dataprev', self.users_mail, header.as_string())
 
-	def copy_data(self, filename, source):
-		logging.info('Compressing target %s ' % source)
-		root_dir = self.config.get(self.section,'backup_dir')
-		
+	def copy_file(self,src,dst):
 		try:
-			make_archive(filename,'gztar',source)
+			os.copy(src, dst)
+		except IOError, e:
+			logging.error(e)
+
+	def __enter__(self):
+		pass
+	def __exit__(self,type,value,traceback):
+		root_dir = self.config.get(self.section,'backup_dir')
+	
+		filename = gethostname()+str(datetime.datetime.now())
+		try:
+			make_archive(filename,'gztar',STAGE_DIR)
 		except OSError as e:
 			logging.critical(e.strerror)
 			print e.strerror + ' ' + source
-			
+
+	def create_stagedir(self):
+		try:
+			if not os.path.exists(STAGE_DIR):
+				os.makedirs(STAGE_DIR)
+		except OSError, e:
+			logging.critical(e)
+			exit("Unable go ahead without a stage area")
+		except:
+			print 'unable to create pgbackup dir'
+	
 
 	def run():
 		pass
@@ -68,12 +87,19 @@ class Backupy:
 # writing a new plugin you probably are going to known the better way to make
 # backups in command line either using API approach or command line utilities.
 class PostgreSQL(Backupy):
+	"""
+	we trust there is a .pgpass file within your $HOME with this format:
+	localhost:5432:*:postgres:postgres
+	localhost:5433:*:postgres:postgres
+	
+	This is the only way to get pg_dump working securely
+	"""
 	def _exec(self):
 		dump_dir = 'db-backup'
 
 		databases = self.config.get('PostgreSQL', 'database')
-		file_output = 'postgres.dmp'
-		options = ['-U postgres','-p5432','-Fc','-f'+file_output]
+		file_output = STAGE_DIR+'postgres.dmp'
+		options = ['-Fc','-f'+file_output]
 
 		if databases == 'all':
 			cmd = ['pg_dumpall']+options
@@ -83,17 +109,9 @@ class PostgreSQL(Backupy):
 		try:
 			cmd_exec = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
 		except subprocess.CalledProcessError, e:
-			logging.info(e.output)
+			logging.critical(e.output)
 			return
 
-		try:
-			os.makedirs(PG_DIR)
-		except OSError:
-			self.copy_data('postgres',dump_dir)
-		except:
-			print 'unable to create pgbackup dir'
-		
-	#	self.config.get('general','backup_dir')+'pgsql'
 	def run(self):
 		self._exec()
 
@@ -116,8 +134,9 @@ class ConfFiles(Backupy):
 	pass
 
 def _build_repr(cls):
-	i = eval(cls)()
-	i.run()
+	with eval(cls)() as i:
+		if isinstance(i, Backupy):
+			i.run()
 
 if __name__ == "__main__":
 	cfg = ConfigParser.ConfigParser()
