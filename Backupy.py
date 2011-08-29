@@ -54,11 +54,15 @@ class Backupy:
 			logging.error(e)
 
 	def __enter__(self):
+		# perhaps we should using this placeholder as a initializer? 
 		pass
 	def __exit__(self,type,value,traceback):
-		root_dir = self.config.get(self.section,'backup_dir')
+		backup_dir = self.config.get(self.section,'backup_dir')
+		item_backup = str(self.__class__).split('.')[1].lower()
+		server_name = gethostname().split('.')[0]
 	
-		filename = gethostname()+str(datetime.datetime.now())
+		filename = "%s_%s_%s" % (server_name,item_backup, \
+				str(datetime.datetime.now().isoformat()).replace(":-",""),)
 		try:
 			make_archive(filename,'gztar',STAGE_DIR)
 		except OSError as e:
@@ -98,7 +102,9 @@ class PostgreSQL(Backupy):
 		dump_dir = 'db-backup'
 
 		databases = self.config.get('PostgreSQL', 'database')
-		file_output = STAGE_DIR+'postgres.dmp'
+		file_output = STAGE_DIR+'postgres.tar.gz'
+		# file to be send to storage area
+		self._file = file_output
 		options = ['-Fc','-f'+file_output]
 
 		if databases == 'all':
